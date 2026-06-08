@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoShell - GNOME Shell Extension Demo</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+      overflow: hidden;
+      height: 100vh;
+      margin: 0;
+    }
+
+    /* GNOME Desktop Wallpaper */
+    .gnome-desktop {
+      background: radial-gradient(circle at 20% 30%, #3584e4 0%, #1a5fb4 40%, #102d5e 80%, #081630 100%);
+      width: 100%;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient glowing lights behind windows to feel premium */
+    .desktop-glow {
+      position: absolute;
+      width: 45vw;
+      height: 45vw;
+      border-radius: 9999px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* GNOME Top Bar */
+    .gnome-topbar {
+      height: 32px;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 40;
+      user-select: none;
+    }
+
+    .topbar-btn {
+      padding: 0 10px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      color: rgba(255, 255, 255, 0.85);
+      transition: background 150ms ease, color 150ms ease;
+      border-radius: 4px;
+      margin: 2px 0;
+    }
+
+    .topbar-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    /* GNOME Dock */
+    .gnome-dock-container {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .gnome-dock {
+      background: rgba(16, 16, 16, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .dock-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .dock-icon:hover {
+      transform: translateY(-8px) scale(1.1);
+    }
+
+    .dock-icon::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.6);
+      opacity: 0;
+      transition: opacity 150ms;
+    }
+
+    .dock-icon.active::after {
+      opacity: 1;
+    }
+
+    /* GNOME Window Styling */
+    .gnome-window {
+      background: rgba(30, 30, 30, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      z-index: 5;
+    }
+
+    .window-header {
+      background: rgba(45, 45, 45, 0.9);
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      user-select: none;
+    }
+
+    .window-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .control-btn {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 150ms;
+    }
+
+    .control-btn-close { background-color: #f35750; }
+    .control-btn-min { background-color: #f8c036; }
+    .control-btn-max { background-color: #3ac444; }
+
+    .control-btn:hover {
+      opacity: 0.8;
+    }
+
+    /* Copilot Mechanical Keycap button */
+    .copilot-keycap-btn {
+      background: #1e222b;
+      border: 1px solid #2e3440;
+      border-bottom: 4px solid #0f1115;
+      border-radius: 8px;
+      box-shadow: 0 6px 0 #0c0d10, 0 10px 25px rgba(0, 0, 0, 0.4);
+      transition: all 100ms ease;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    .copilot-keycap-btn:active {
+      border-bottom: 1px solid #0f1115;
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #0c0d10, 0 5px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .copilot-keycap-glow {
+      position: absolute;
+      inset: -2px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #37b6ff, #a855f7, #ec4899);
+      z-index: -1;
+      opacity: 0.4;
+      filter: blur(4px);
+      transition: opacity 200ms;
+    }
+
+    .copilot-keycap-btn:hover .copilot-keycap-glow {
+      opacity: 0.85;
+      filter: blur(6px);
+    }
+
+    /* Gemini Slide-out Panel */
+    .gemini-panel {
+      position: absolute;
+      top: 32px;
+      right: -400px;
+      width: 400px;
+      height: calc(100vh - 32px);
+      background: rgba(13, 14, 19, 0.92);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 30;
+      transition: right 350ms cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .gemini-panel.open {
+      right: 0;
+    }
+
+    .gemini-gradient-bar {
+      height: 2px;
+      background: linear-gradient(90deg, #38bdf8 0%, #818cf8 35%, #c084fc 70%, #f472b6 100%);
+      width: 100%;
+    }
+
+    /* Chat bubble custom shapes */
+    .bubble-user {
+      border-radius: 16px 16px 2px 16px;
+      background: rgba(20, 184, 166, 0.15);
+      border: 1px solid rgba(20, 184, 166, 0.2);
+    }
+
+    .bubble-model {
+      border-radius: 16px 16px 16px 2px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Scrollbar styling for chat container */
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Pulsing typing indicator */
+    .dot-pulse {
+      animation: pulse 1.2s infinite ease-in-out;
+    }
+    .dot-pulse:nth-child(2) { animation-delay: 0.2s; }
+    .dot-pulse:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.8); opacity: 0.4; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* Back Button overlay to return to portfolio */
+    .back-portfolio-btn {
+      position: absolute;
+      top: 48px;
+      left: 16px;
+      z-index: 20;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 200ms;
+    }
+
+    .back-portfolio-btn:hover {
+      background: rgba(20, 184, 166, 0.2);
+      border-color: rgba(20, 184, 166, 0.4);
+      transform: translateY(-1px);
+    }
+
+    /* Highlight suggestion pills */
+    .suggestion-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: all 200ms;
+    }
+    .suggestion-pill:hover {
+      background: rgba(20, 184, 166, 0.1);
+      border-color: rgba(20, 184, 166, 0.3);
+      color: #2dd4bf;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- GNOME Desktop environment wrapper -->
+  <div class="gnome-desktop select-none">
+    
+    <!-- Ambient glows -->
+    <div class="desktop-glow top-10 left-10"></div>
+    <div class="desktop-glow bottom-10 right-10"></div>
+
+    <!-- Back to Portfolio button -->
+    <a href="../../index.html#proje/coshell" class="back-portfolio-btn px-4 py-2 rounded-full text-sm font-medium text-teal-400 flex items-center gap-2 shadow-lg">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+      </svg>
+      <span>Portfolyoya Dön</span>
+    </a>
+
+    <!-- GNOME Top Bar -->
+    <div class="gnome-topbar w-full px-4 flex items-center justify-between relative">
+      <div class="flex items-center gap-1">
+        <button class="topbar-btn font-semibold">Aktiviteler</button>
+        <button class="topbar-btn" id="terminal-dock-launch">Uçbirim</button>
+      </div>
+      
+      <!-- Live ticking clock in GNOME top bar -->
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <button class="topbar-btn" id="gnome-time">8 Haz Pzt 23:10</button>
+      </div>
+
+      <!-- System Menu indicators (volume, battery, net) -->
+      <div class="flex items-center gap-2">
+        <div class="topbar-btn flex items-center gap-2" id="system-quick-settings">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.07 19.64 10.47 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
+          </svg>
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace Area -->
+    <div class="w-full h-[calc(100vh-32px)] p-8 relative flex items-center justify-center">
+
+      <!-- Interactive GNOME Terminal Window -->
+      <div class="gnome-window w-full max-w-2xl absolute" id="terminalWindow" style="top: 15%; left: 10%;">
+        <!-- Terminal Header -->
+        <div class="window-header cursor-move" id="terminalHeader">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <span class="window-title">atakan@gnome: ~</span>
+          </div>
+          <div class="window-controls">
+            <button class="control-btn control-btn-min" title="Küçült"></button>
+            <button class="control-btn control-btn-max" title="Ekranı Kapla"></button>
+            <button class="control-btn control-btn-close" id="closeTerminalBtn" title="Kapat"></button>
+          </div>
+        </div>
+        
+        <!-- Terminal Body -->
+        <div class="p-4 font-mono text-sm h-72 overflow-y-auto text-emerald-400 bg-[#161920]/95 select-text chat-scroll">
+          <p class="text-gray-400">Son Giriş: <span id="terminal-login-date">Pzt Haz 8 23:10:00</span> tty1 üzerinde</p>
+          <div class="mt-2 space-y-1">
+            <p><span class="text-sky-400">atakan@gnome</span>:<span class="text-teal-400">~</span>$ git clone https://github.com/atakan-k/coshell.git</p>
+            <p class="text-gray-400">Cloning into 'coshell'...</p>
+            <p class="text-gray-400">remote: Enumerating objects: 45, done.</p>
+            <p class="text-gray-400">remote: Counting objects: 100% (45/45), done.</p>
+            <p class="text-gray-400">Receiving objects: 100% (45/45), 24.3 KiB | 8.00 MiB/s, done.</p>
+            <p><span class="text-sky-400">atakan@gnome</span>:<span class="text-teal-400">~</span>$ cd coshell && ./install.sh</p>
+            <p class="text-gray-400">[+] Copying extension to ~/.local/share/gnome-shell/extensions/...</p>
+            <p class="text-gray-400">[+] Compilation of schemas completed successfully.</p>
+            <p class="text-emerald-300 font-bold">[!] CoShell eklentisi başarıyla kuruldu!</p>
+            <p class="text-yellow-400 font-semibold">[i] Etkinleştirmek için GNOME Shell'i yeniden başlatın (Alt+F2 -> r yazıp Enter) ya da aşağıdaki komutu çalıştırın:</p>
+            <p><span class="text-sky-400">atakan@gnome</span>:<span class="text-teal-400">~/coshell</span>$ gnome-extensions enable coshell@atakan-k.github.io</p>
+            <p class="text-emerald-300 font-bold">Extension enabled successfully!</p>
+            <p class="text-gray-400">Panel açma kısayolu: <span class="text-pink-400 font-bold">Super + C</span> (veya Alt + C)</p>
+            <p class="text-sky-400 mt-2" id="terminal-cursor-prompt">atakan@gnome:~/coshell$ <span class="animate-pulse text-white font-bold">_</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shortcut Tip Display -->
+      <div class="absolute top-20 right-6 text-right text-white/50 text-xs hidden md:block">
+        <span class="bg-black/45 border border-white/5 px-3 py-1.5 rounded-lg">
+          Kısayol Tuşu: <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[10px]">Super + C</kbd> veya <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[10px]">Alt + C</kbd>
+        </span>
+      </div>
+
+      <!-- Mechanical Copilot Keycap Trigger -->
+      <div class="absolute bottom-24 flex flex-col items-center gap-3">
+        <button id="copilotBtn" class="copilot-keycap-btn w-24 h-20 flex flex-col items-center justify-center gap-1.5 text-white active:scale-95">
+          <div class="copilot-keycap-glow"></div>
+          <!-- Colorful AI Spark / Gemini logo inside button -->
+          <svg class="w-6 h-6 text-teal-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C12 2 12.5 7.5 15.5 10.5C18.5 13.5 24 14 24 14C24 14 18.5 14.5 15.5 17.5C12.5 20.5 12 26 12 26C12 26 11.5 20.5 8.5 17.5C5.5 14.5 0 14 0 14C0 14 5.5 13.5 8.5 10.5C11.5 7.5 12 2 12 2Z" fill="url(#sparkGradient)"/>
+            <defs>
+              <linearGradient id="sparkGradient" x1="0" y1="0" x2="24" y2="26" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#38bdf8"/>
+                <stop offset="0.5" stop-color="#a855f7"/>
+                <stop offset="1" stop-color="#ec4899"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="text-[10px] font-bold tracking-widest text-gray-300 font-mono">COPILOT</span>
+        </button>
+        <span class="text-xs text-white/40 font-medium tracking-wide">Paneli açmak için tıklayın veya klavyeden Super+C / Alt+C tuşlayın</span>
+      </div>
+
+    </div>
+
+    <!-- GNOME Shell Dock (Bottom) -->
+    <div class="gnome-dock-container">
+      <div class="gnome-dock">
+        <div class="dock-icon" title="Dosyalar">
+          <div class="w-10 h-10 rounded-lg bg-yellow-500/80 flex items-center justify-center text-white text-lg font-bold shadow-md">📂</div>
+        </div>
+        <div class="dock-icon active" id="terminal-dock-btn" title="Uçbirim">
+          <div class="w-10 h-10 rounded-lg bg-slate-900/90 border border-slate-700 flex items-center justify-center text-emerald-400 font-mono text-base font-bold shadow-md">$_</div>
+        </div>
+        <div class="dock-icon" title="İnternet Tarayıcısı">
+          <div class="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white text-lg font-bold shadow-md">🌐</div>
+        </div>
+        <div class="h-8 w-px bg-white/10 mx-1"></div>
+        <div class="dock-icon active" id="coshell-dock-btn" title="CoShell Asistanı">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-teal-500 to-purple-600 flex items-center justify-center shadow-lg border border-white/10">
+            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C12 2 12.5 7.5 15.5 10.5C18.5 13.5 24 14 24 14C24 14 18.5 14.5 15.5 17.5C12.5 20.5 12 26 12 26C12 26 11.5 20.5 8.5 17.5C5.5 14.5 0 14 0 14C0 14 5.5 13.5 8.5 10.5C11.5 7.5 12 2 12 2Z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gemini Slide-out Assistant Sidebar -->
+    <div id="geminiPanel" class="gemini-panel flex flex-col">
+      <div class="gemini-gradient-bar"></div>
+      
+      <!-- Panel Header -->
+      <div class="p-4 border-b border-white/5 flex items-center justify-between bg-black/40">
+        <div class="flex items-center gap-2">
+          <!-- Gemini Star Icon -->
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C12 2 12.5 7.5 15.5 10.5C18.5 13.5 24 14 24 14C24 14 18.5 14.5 15.5 17.5C12.5 20.5 12 26 12 26C12 26 11.5 20.5 8.5 17.5C5.5 14.5 0 14 0 14C0 14 5.5 13.5 8.5 10.5C11.5 7.5 12 2 12 2Z" fill="url(#headerSpark)"/>
+            <defs>
+              <linearGradient id="headerSpark" x1="0" y1="0" x2="24" y2="26" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#38bdf8"/>
+                <stop offset="0.5" stop-color="#a855f7"/>
+                <stop offset="1" stop-color="#ec4899"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-purple-400 font-mono tracking-wider">Gemini</span>
+          <span class="text-[9px] bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded border border-teal-500/20 font-bold uppercase font-mono">CoShell</span>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <!-- API Settings gear button -->
+          <button id="toggle-settings-btn" class="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-all" title="API Ayarları">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </button>
+          
+          <button id="closePanelBtn" class="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings Overlay / API Key Config -->
+      <div id="settingsPanel" class="absolute inset-x-0 top-[57px] bg-[#16171d]/98 border-b border-white/5 p-4 z-20 hidden">
+        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Gemini API Ayarları</h4>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Google AI Studio API Anahtarı:</label>
+            <input type="password" id="api-key-input" class="w-full bg-black/40 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-teal-500/50" placeholder="AIzaSy..." />
+          </div>
+          <p class="text-[10px] text-gray-500">API anahtarınız tarayıcınızın yerel depolama alanında (localStorage) güvenli bir şekilde saklanır ve doğrudan Google Gemini sunucularına istek atılır.</p>
+          <div class="flex justify-between items-center pt-2">
+            <span id="api-status" class="text-[10px] text-yellow-500">Mod: Demo Asistan (MOCK)</span>
+            <div class="flex gap-2">
+              <button id="clear-api-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1 rounded text-xs transition-colors">Temizle</button>
+              <button id="save-api-btn" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1 rounded text-xs transition-all">Kaydet</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat History Container -->
+      <div id="chatHistory" class="flex-1 p-4 overflow-y-auto space-y-4 flex flex-col chat-scroll chat-history select-text">
+        <!-- Initial assistant greeting -->
+        <div class="chat-message model self-start max-w-[85%]">
+          <div class="bubble-model px-4 py-2.5 text-sm leading-relaxed text-gray-200">
+            Merhaba! Ben Gemini. GNOME masaüstünüzdeki CoShell yardımcınızım. Size nasıl yardımcı olabilirim? 
+            <div class="mt-2 text-xs text-teal-400/80 font-medium">Örnek soruları aşağıdaki butonlardan seçebilir veya istediğinizi yazabilirsiniz.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggestion pills list -->
+      <div class="px-4 py-2 border-t border-white/5 flex gap-2 overflow-x-auto select-none no-scrollbar bg-black/10 shrink-0">
+        <button class="suggestion-pill text-xs px-3 py-1.5 rounded-full text-gray-300 font-medium whitespace-nowrap" data-prompt="CoShell nedir?">
+          CoShell nedir?
+        </button>
+        <button class="suggestion-pill text-xs px-3 py-1.5 rounded-full text-gray-300 font-medium whitespace-nowrap" data-prompt="Kurulumu nasıl yapılır?">
+          Kurulumu nasıl yapılır?
+        </button>
+        <button class="suggestion-pill text-xs px-3 py-1.5 rounded-full text-gray-300 font-medium whitespace-nowrap" data-prompt="Örnek bir GNOME eklentisi yaz.">
+          GNOME Eklentisi Örneği
+        </button>
+      </div>
+
+      <!-- Chat Input Area -->
+      <div class="p-4 border-t border-white/5 bg-[#121319]/95 shrink-0 relative">
+        <form id="chatForm" class="relative flex items-center">
+          <input type="text" id="chatInput" autocomplete="off" class="w-full bg-white/5 border border-white/10 rounded-full py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-teal-500/50 text-white placeholder-gray-500 transition-colors" placeholder="Gemini'a sorun..." />
+          <button type="submit" id="sendBtn" class="absolute right-1.5 p-2 bg-transparent hover:bg-white/5 text-gray-400 hover:text-teal-400 rounded-full transition-all duration-200 disabled:opacity-40 disabled:hover:bg-transparent" disabled>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Elements references
+    const gnomeTime = document.getElementById('gnome-time');
+    const copilotBtn = document.getElementById('copilotBtn');
+    const geminiPanel = document.getElementById('geminiPanel');
+    const closePanelBtn = document.getElementById('closePanelBtn');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatForm = document.getElementById('chatForm');
+    const chatHistory = document.getElementById('chatHistory');
+    const terminalWindow = document.getElementById('terminalWindow');
+    const terminalHeader = document.getElementById('terminalHeader');
+    const closeTerminalBtn = document.getElementById('closeTerminalBtn');
+    const terminalDockBtn = document.getElementById('terminal-dock-btn');
+    const terminalDockLaunch = document.getElementById('terminal-dock-launch');
+    const coshellDockBtn = document.getElementById('coshell-dock-btn');
+    
+    // Settings elements
+    const toggleSettingsBtn = document.getElementById('toggle-settings-btn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const saveApiBtn = document.getElementById('save-api-btn');
+    const clearApiBtn = document.getElementById('clear-api-btn');
+    const apiStatus = document.getElementById('api-status');
+
+    // State parameters
+    let apiKey = localStorage.getItem('gemini_api_key') || '';
+    let conversations = [];
+
+    // Initialize UI settings
+    if (apiKey) {
+      apiKeyInput.value = apiKey;
+      apiStatus.textContent = "Mod: Gerçek Gemini API (Aktif)";
+      apiStatus.className = "text-[10px] text-teal-400 font-bold";
+    }
+
+    // Toggle Settings Panel
+    toggleSettingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.toggle('hidden');
+    });
+
+    // Save API key
+    saveApiBtn.addEventListener('click', () => {
+      const value = apiKeyInput.value.trim();
+      if (value) {
+        apiKey = value;
+        localStorage.setItem('gemini_api_key', apiKey);
+        apiStatus.textContent = "Mod: Gerçek Gemini API (Aktif)";
+        apiStatus.className = "text-[10px] text-teal-400 font-bold";
+        settingsPanel.classList.add('hidden');
+        appendSystemMessage("Gemini API anahtarınız kaydedildi. Artık gerçek AI yanıtları alacaksınız!");
+      }
+    });
+
+    // Clear API key
+    clearApiBtn.addEventListener('click', () => {
+      apiKey = '';
+      localStorage.removeItem('gemini_api_key');
+      apiKeyInput.value = '';
+      apiStatus.textContent = "Mod: Demo Asistan (MOCK)";
+      apiStatus.className = "text-[10px] text-yellow-500";
+      settingsPanel.classList.add('hidden');
+      appendSystemMessage("API anahtarı temizlendi. Simülatör (mock) moduna dönüldü.");
+    });
+
+    // Handle inputs states
+    chatInput.addEventListener('input', () => {
+      sendBtn.disabled = chatInput.value.trim() === '';
+    });
+
+    // Live clock updater
+    function updateClock() {
+      const now = new Date();
+      const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+      let timeStr = now.toLocaleDateString('tr-TR', options);
+      // Clean up string styling to look GNOME-like
+      timeStr = timeStr.replace(',', '');
+      gnomeTime.textContent = timeStr;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Set initial date in terminal mockup
+    const termLoginDate = document.getElementById('terminal-login-date');
+    if (termLoginDate) {
+      const now = new Date();
+      termLoginDate.textContent = now.toLocaleDateString('tr-TR', { weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + now.toTimeString().split(' ')[0];
+    }
+
+    // Toggle Panel Open/Close
+    function togglePanel() {
+      geminiPanel.classList.toggle('open');
+      const isOpen = geminiPanel.classList.contains('open');
+      if (isOpen) {
+        coshellDockBtn.classList.add('active');
+        setTimeout(() => chatInput.focus(), 360);
+      } else {
+        coshellDockBtn.classList.remove('active');
+      }
+    }
+
+    // Event listeners for toggle buttons
+    copilotBtn.addEventListener('click', togglePanel);
+    closePanelBtn.addEventListener('click', () => {
+      geminiPanel.classList.remove('open');
+      coshellDockBtn.classList.remove('active');
+    });
+    coshellDockBtn.addEventListener('click', togglePanel);
+
+    // Global shortcut listener: Super+C or Alt+C or Ctrl+C
+    document.addEventListener('keydown', (e) => {
+      const isC = e.key.toLowerCase() === 'c';
+      const isAlt = e.altKey;
+      const isCtrl = e.ctrlKey;
+      const isMeta = e.metaKey; // Windows / Command / Super key
+
+      if (isC && (isMeta || isAlt || (isCtrl && e.shiftKey))) {
+        e.preventDefault();
+        togglePanel();
+      }
+    });
+
+    // Terminal toggle functions
+    function toggleTerminal() {
+      terminalWindow.classList.toggle('hidden');
+      const isVisible = !terminalWindow.classList.contains('hidden');
+      if (isVisible) {
+        terminalDockBtn.classList.add('active');
+      } else {
+        terminalDockBtn.classList.remove('active');
+      }
+    }
+    closeTerminalBtn.addEventListener('click', toggleTerminal);
+    terminalDockBtn.addEventListener('click', toggleTerminal);
+    terminalDockLaunch.addEventListener('click', () => {
+      terminalWindow.classList.remove('hidden');
+      terminalDockBtn.classList.add('active');
+    });
+
+    // Terminal drag-and-drop mechanics (simplistic)
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    terminalHeader.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragOffsetX = e.clientX - terminalWindow.offsetLeft;
+      dragOffsetY = e.clientY - terminalWindow.offsetTop;
+      terminalWindow.style.zIndex = 10;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        terminalWindow.style.left = (e.clientX - dragOffsetX) + 'px';
+        terminalWindow.style.top = (e.clientY - dragOffsetY) + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // Chat interface helpers
+    function appendUserMessage(text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "chat-message user self-end max-w-[85%] animate-[fadeIn_0.25s]";
+      msgDiv.innerHTML = `<div class="bubble-user px-4 py-2.5 text-sm leading-relaxed text-gray-200 text-wrap-anywhere">${escapeHtml(text)}</div>`;
+      chatHistory.appendChild(msgDiv);
+      scrollToBottom();
+    }
+
+    function appendSystemMessage(text) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "chat-message system self-center max-w-[90%] text-center animate-[fadeIn_0.2s]";
+      msgDiv.innerHTML = `<div class="bg-teal-500/10 text-teal-400 border border-teal-500/10 rounded-lg px-4 py-1.5 text-xs font-medium">${escapeHtml(text)}</div>`;
+      chatHistory.appendChild(msgDiv);
+      scrollToBottom();
+    }
+
+    function showTypingIndicator() {
+      const indicator = document.createElement('div');
+      indicator.id = "typingIndicator";
+      indicator.className = "chat-message model self-start max-w-[85%] flex items-center gap-1.5 py-3 px-4 bg-white/5 rounded-2xl rounded-tl-none border border-white/5";
+      indicator.innerHTML = `
+        <div class="w-2 h-2 rounded-full bg-teal-400 dot-pulse"></div>
+        <div class="w-2 h-2 rounded-full bg-teal-400 dot-pulse"></div>
+        <div class="w-2 h-2 rounded-full bg-teal-400 dot-pulse"></div>
+      `;
+      chatHistory.appendChild(indicator);
+      scrollToBottom();
+      return indicator;
+    }
+
+    function removeTypingIndicator() {
+      const el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    function scrollToBottom() {
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // Basic markdown helper for rendering code blocks and linebreaks
+    function renderMarkdown(text) {
+      let html = escapeHtml(text);
+      
+      // Replace code blocks: ```javascript ... ```
+      html = html.replace(/```(.*?)\n([\s\S]*?)```/g, function(match, lang, code) {
+        return `<pre class="bg-black/60 border border-white/10 rounded-lg p-3 my-2 font-mono text-xs text-teal-300 overflow-x-auto max-w-full select-text">${code.trim()}</pre>`;
+      });
+
+      // Replace inline code tags: `code`
+      html = html.replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-pink-400 font-medium">$1</code>');
+
+      // Replace list items
+      html = html.replace(/^\s*-\s+(.*?)$/gm, '<li class="ml-4 list-disc text-gray-300">$1</li>');
+
+      // Replace double returns as paragraph breaks
+      html = html.replace(/\n\n/g, '<br><br>');
+      
+      // Single line breaks
+      html = html.replace(/\n/g, '<br>');
+
+      return html;
+    }
+
+    // Local smart response database (MOCK)
+    const MOCK_ANSWERS = [
+      {
+        keys: ['coshell', 'nedir', 'what is'],
+        response: "CoShell, GNOME masaüstünüzde Copilot tuşuna basarak anında Gemini AI asistanına erişmenizi sağlayan bir GNOME kabuk (shell) eklentisidir. Javascript (GJS) ve GNOME API'leri ile doğrudan sisteme entegre olarak çalışır. \n\nSağ kenardan açılan paneliyle hızlıca kod üretebilir, soru sorabilir veya sistem komutları hakkında yardım alabilirsiniz."
+      },
+      {
+        keys: ['kurulum', 'nasil', 'install', 'setup'],
+        response: "CoShell'i sisteminize kurmak için aşağıdaki adımları terminalde sırasıyla çalıştırabilirsiniz:\n\n```bash\ngit clone https://github.com/atakan-k/coshell.git\ncd coshell\n./install.sh\ngnome-extensions enable coshell@atakan-k.github.io\n```\n\nKurulum tamamlandıktan sonra kısayol ile açabilmek için GNOME kabuğunu yeniden başlatmanız (Alt+F2 -> r) gerekebilir."
+      },
+      {
+        keys: ['örnek', 'eklenti', 'extension', 'example', 'gjs'],
+        response: "GNOME eklentileri (extensions) Javascript (GJS - Gnome JavaScript Bindings) ile yazılır. Temel olarak bir `extension.js` dosyası ile başlatılır. Örnek bir eklenti başlatma yapısı şu şekildedir:\n\n```javascript\nimport { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';\nimport St from 'gi://St';\n\nexport default class MyExtension extends Extension {\n    enable() {\n        log('CoShell eklentisi aktif edildi');\n    }\n    \n    disable() {\n        log('CoShell eklentisi pasif edildi');\n    }\n}\n```"
+      },
+      {
+        keys: ['merhaba', 'selam', 'hello', 'hey'],
+        response: "Merhaba! Ben Gemini. GNOME masaüstünüzdeki CoShell yardımcınızım. Size nasıl yardımcı olabilirim?\n\n(Not: Gerçek bir yapay zeka deneyimi için sağ üstteki çark simgesine tıklayarak kendi Gemini API anahtarınızı ekleyebilirsiniz!)"
+      },
+      {
+        keys: ['kim yazdı', 'geliştirici', 'author', 'developer'],
+        response: "CoShell, açık kaynak topluluğu tarafından geliştirilen bağımsız bir GNOME Shell eklentisi projesidir. GitHub deposunu ziyaret ederek katkıda bulunabilirsiniz!"
+      }
+    ];
+
+    // Local query matching resolver
+    function getLocalMockResponse(query) {
+      const cleanQuery = query.toLowerCase();
+      
+      for (const item of MOCK_ANSWERS) {
+        if (item.keys.some(k => cleanQuery.includes(k))) {
+          return item.response;
+        }
+      }
+
+      // Default smart response
+      return "Harika bir soru! GNOME masaüstü entegrasyonu ve Linux üzerinde Gemini AI deneyimini geliştirmeye devam ediyoruz. Bu eklenti sayesinde sisteminizde arka planda çalışan yapay zeka asistanınız her an elinizin altında.\n\nEğer gerçek Gemini AI ile konuşmak isterseniz, sağ üstteki ayarlar (çark) simgesine tıklayıp Google AI Studio'dan alabileceğiniz ücretsiz Gemini API anahtarınızı girebilirsiniz!";
+    }
+
+    // Simulated streaming typing effect
+    function streamResponse(responseHtml) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "chat-message model self-start max-w-[85%] animate-[fadeIn_0.2s]";
+      
+      const bubble = document.createElement('div');
+      bubble.className = "bubble-model px-4 py-2.5 text-sm leading-relaxed text-gray-200 select-text";
+      msgDiv.appendChild(bubble);
+      chatHistory.appendChild(msgDiv);
+
+      // We parse basic html tokens or split by characters
+      // To simulate streaming safely, we inject segments
+      let currentIndex = 0;
+      const speed = 10; // ms per char (faster for smooth UX)
+
+      // Temporary element to parse HTML properly during streaming
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = responseHtml;
+      
+      // Get all child nodes or text parts to output sequentially
+      const contentNodes = Array.from(tempDiv.childNodes);
+      let currentNodeIndex = 0;
+      
+      function streamNextNode() {
+        if (currentNodeIndex >= contentNodes.length) {
+          scrollToBottom();
+          return;
+        }
+
+        const node = contentNodes[currentNodeIndex];
+        if (node.nodeType === Node.TEXT_NODE) {
+          let charIndex = 0;
+          const text = node.textContent;
+          const textNode = document.createTextNode('');
+          bubble.appendChild(textNode);
+          
+          function typeChar() {
+            if (charIndex < text.length) {
+              textNode.textContent += text.charAt(charIndex);
+              charIndex++;
+              scrollToBottom();
+              setTimeout(typeChar, speed);
+            } else {
+              currentNodeIndex++;
+              streamNextNode();
+            }
+          }
+          typeChar();
+        } else {
+          // Element node (like pre code block or code tags)
+          // Clone it empty and stream its text content if it has one
+          const clone = node.cloneNode(false);
+          bubble.appendChild(clone);
+          
+          if (node.childNodes.length > 0) {
+            let charIndex = 0;
+            const text = node.textContent;
+            
+            function typeInnerChar() {
+              if (charIndex < text.length) {
+                clone.textContent += text.charAt(charIndex);
+                charIndex++;
+                scrollToBottom();
+                setTimeout(typeInnerChar, speed / 2);
+              } else {
+                currentNodeIndex++;
+                streamNextNode();
+              }
+            }
+            typeInnerChar();
+          } else {
+            currentNodeIndex++;
+            streamNextNode();
+          }
+        }
+      }
+
+      streamNextNode();
+    }
+
+    // Real API call to Gemini API key
+    async function fetchGeminiApiResponse(userMessage) {
+      // Build simple prompt history
+      conversations.push({ role: 'user', parts: [{ text: userMessage }] });
+
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: conversations
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+          const reply = data.candidates[0].content.parts[0].text;
+          conversations.push({ role: 'model', parts: [{ text: reply }] });
+          return reply;
+        } else {
+          throw new Error('API returned empty or invalid structure');
+        }
+      } catch (err) {
+        console.error(err);
+        // Pop the user message from history if it failed
+        conversations.pop();
+        return `Gemini API hatası oluştu: ${err.message}. Lütfen API anahtarınızı kontrol edin ya da simülasyon moduna geri dönün.`;
+      }
+    }
+
+    // Submit handler
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      chatInput.value = '';
+      sendBtn.disabled = true;
+      appendUserMessage(text);
+      
+      showTypingIndicator();
+
+      let reply = '';
+      if (apiKey) {
+        // Fetch from real API
+        reply = await fetchGeminiApiResponse(text);
+      } else {
+        // Retrieve local simulated reply
+        await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 800)); // typing delay
+        reply = getLocalMockResponse(text);
+      }
+
+      removeTypingIndicator();
+      streamResponse(renderMarkdown(reply));
+    });
+
+    // Prompt pills click handlers
+    document.querySelectorAll('.suggestion-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const promptText = pill.getAttribute('data-prompt');
+        chatInput.value = promptText;
+        sendBtn.disabled = false;
+        chatForm.dispatchEvent(new Event('submit'));
+      });
+    });
+
+  </script>
+</body>
+</html>
